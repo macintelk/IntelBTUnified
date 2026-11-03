@@ -10,6 +10,7 @@
 | | |
 |---|---|
 | Probado | **Intel AX210** (USB `8087:0032`), macOS 26.7 (Tahoe), Core i7‑6700T, OpenCore, Lilu 1.7.3. Carga el firmware, conecta y reproduce audio A2DP (auriculares clásicos). |
+| Camino Gen2 | **Intel AX201** (USB `8087:0026`) y el resto de chips Gen2 ahora sí ejecutan las ops de Gen2 (`IntelBluetoothOpsGen2`, firmware `ibt-18-*` para el AX201): antes `start()` entregaba cualquier chip no‑Gen1 a la clase Gen3, así que un dispositivo Gen2 nunca podía cargar su firmware. Sin probar aún en hardware — se agradece feedback. |
 | Sin probar | El resto de chips de `devices.txt`, macOS 12 – 25, y dispositivos BLE (el parche de dirección aleatoria solo se nota con BLE). |
 | Sin confirmar | Los mensajes de kernel de los parches (`ibtp`, `btlfx`): el buffer de `dmesg` los había perdido cuando se miró. |
 
@@ -20,17 +21,19 @@
 La lista sale de [`devices.txt`](devices.txt) y es la única fuente de verdad (genera la tabla del driver y las personalidades del `Info.plist`).
 IDs de producto con vendor `0x8087`: `0025` `0026` `0029` `0032` `0033` `0035` `0036` `0038` `07dc` `0a2a` `0a2b` `0aa7` `0aaa`.
 Un ID que no esté en la tabla se rechaza en vez de tratarse como Gen2 en silencio. Para añadir un chip: una línea en `devices.txt`
-(y su firmware en `fw/` si hace falta) y recompilar. En la práctica, solo se ha ejercitado el camino de Gen3 (AX210).
+(y su firmware en `fw/` si hace falta) y recompilar. En la práctica, solo se ha ejercitado el camino de Gen3 (AX210); el camino de
+Gen2 (AX201/AX200/9x60, firmware `ibt-17-*` – `ibt-20-*`) está cableado pero sin probar.
 
 ## Instalación (OpenCore)
 
-1. Descarga el zip de [Releases](../../releases) (o compílalo, ver abajo): `…-AX210.zip` lleva solo el firmware del AX210/AX211
-   (≈0,6 MB); `…-full.zip` lleva todos los firmwares (≈11 MB).
+1. Descarga el zip de [Releases](../../releases) (o compílalo, ver abajo): `…-AX201.zip` lleva solo el firmware del AX201
+   (≈2 MB); `…-AX210.zip` lleva solo el firmware del AX210/AX211 (≈0,6 MB); `…-full.zip` lleva todos los firmwares (≈11 MB).
 2. Copia `IntelBTUnified.kext` a `EFI/OC/Kexts/`.
 3. En `config.plist` → `Kernel → Add`: **quita `IntelBluetoothFirmware`, `IntelBTPatcher` y `BlueToolFixup`** y añade este **después de Lilu**.
    Cargarlos a la vez aplicaría los parches dos veces.
 4. Reinicia y comprueba:
-   - `ioreg -rc IntelBluetoothFirmware | grep fw_name` → `ibt-0041-0041.sfi` en un AX210 (`(already running)` si el chip conservó el
+   - `ioreg -rc IntelBluetoothFirmware | grep fw_name` → `ibt-0041-0041.sfi` en un AX210, otro `ibt-18-*.sfi` (normalmente
+     `ibt-18-16-1.sfi`) en un AX201 (`(already running)` si el chip conservó el
      firmware tras un reinicio sin cortar la alimentación; es normal).
    - `system_profiler SPBluetoothDataType` → `State: On`.
    - `ioreg -c IntelBTUnified -r` → el plugin de Lilu está activo (`VersionInfo`).
@@ -58,10 +61,11 @@ Solo hacen falta las **Command Line Tools** (sin Xcode), `git`, `python3` y `mak
 
 ```sh
 make deps                          # clona MacKernelSDK y Lilu (commits fijados en el Makefile) en deps/
+make FW="ibt-18-*"                 # solo firmware AX201 → build/IntelBTUnified.kext
 make FW="ibt-0041-*"               # solo firmware AX210/AX211 → build/IntelBTUnified.kext
 make clean; make                   # todos los firmwares
 make DEBUG=1                       # con DBGLOG
-make dist                          # genera dist/IntelBTUnified-<versión>-{AX210,full}.zip
+make dist                          # genera dist/IntelBTUnified-<versión>-{AX201,AX210,full}.zip
 ```
 
 Haz `make clean` al cambiar `FW`. Para elegir otro firmware, `FW` acepta patrones glob separados por espacios

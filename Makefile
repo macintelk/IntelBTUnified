@@ -1,24 +1,25 @@
 # Compila IntelBTUnified.kext solo con las Command Line Tools (sin Xcode).
 #   make deps      clona MacKernelSDK y Lilu (versiones fijadas)
-#   make           compila build/IntelBTUnified.kext (todos los firmwares)
-#   make FW="ibt-0041-*"  incluye solo los firmwares que coincidan (p.ej. AX201: ~1 MB en vez de ~11 MB)
+#   make	   compila build/IntelBTUnified.kext (todos los firmwares)
+#   make FW="ibt-18-*"    solo firmware Gen2 de AX201 (8087:0026, ThP): ~2 MB en vez de ~11 MB
+#   make FW="ibt-0041-*"  solo firmware Gen3 de AX210/AX211 (8087:0032): ~0.6 MB en vez de ~11 MB
 #   make DEBUG=1   build de depuracion (DBGLOG activo)
-#   make dist      genera dist/IntelBTUnified-<version>-{AX210,full}.zip (para subir a GitHub Releases)
+#   make dist      genera dist/IntelBTUnified-<version>-{AX201,AX210,full}.zip (para GitHub Releases)
 
 NAME       := IntelBTUnified
 VERSION    := 1.0.0
 BUNDLE_ID  := local.$(NAME)
-FW         ?= *
+FW	 ?= *
 
 MKSDK_REF  := 3f750085caa17ec3a7880f11c11bf4f48cd6a164
 LILU_REF   := 0515f40b7f2a096adc85e832a4c6104fbd07f936
 MKSDK      := deps/MacKernelSDK
-LILU       := deps/Lilu
+LILU       := deps/Lilu.kext/Contents/Resources
 
 BUILD      := build
 KEXT       := $(BUILD)/$(NAME).kext
-CC         := xcrun clang
-CXX        := xcrun clang++
+CC	 := xcrun clang
+CXX	:= xcrun clang++
 MINOS      := 12.0
 
 ifdef DEBUG
@@ -28,20 +29,20 @@ OPT := -Os -DNDEBUG
 endif
 
 COMMON := -target x86_64-apple-macos$(MINOS) -arch x86_64 -mkernel -fno-builtin -fno-common \
-          -fno-stack-protector -fapple-kext -fvisibility=hidden -nostdinc \
-          -D_FORTIFY_SOURCE=0 -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT \
-          -DPRODUCT_NAME=$(NAME) -DMODULE_VERSION=$(VERSION) \
-          -Wall -Wno-unused-function -Wno-deprecated-declarations $(OPT) \
-          -I$(MKSDK)/Headers -I$(LILU) -I$(LILU)/Lilu -I$(BUILD) -Isrc/driver \
-          -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
+	  -fno-stack-protector -fapple-kext -fvisibility=hidden -nostdinc \
+	  -D_FORTIFY_SOURCE=0 -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT \
+	  -DPRODUCT_NAME=$(NAME) -DMODULE_VERSION=$(VERSION) \
+	  -Wall -Wno-unused-function -Wno-deprecated-declarations $(OPT) \
+	  -I$(MKSDK)/Headers -I$(LILU) -I$(LILU)/Lilu -I$(BUILD) -Isrc/driver \
+	  -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
 CFLAGS   := $(COMMON) -std=gnu11
 CXXFLAGS := $(COMMON) -std=gnu++17 -fno-rtti -fno-exceptions -fno-sized-deallocation -nostdinc++
 
 LILU_SRC := plugin_start.cpp
 DRV_SRC  := $(wildcard src/driver/*.cpp)
 OBJS     := $(BUILD)/obj/IntelBTUnified.o $(BUILD)/obj/plugin_start.o $(BUILD)/obj/FwBinary.o \
-            $(BUILD)/obj/kmod_info.o \
-            $(patsubst src/driver/%.cpp,$(BUILD)/obj/%.o,$(DRV_SRC))
+	    $(BUILD)/obj/kmod_info.o \
+	    $(patsubst src/driver/%.cpp,$(BUILD)/obj/%.o,$(DRV_SRC))
 
 .PHONY: all deps clean dist
 all: $(KEXT)
@@ -73,7 +74,7 @@ $(BUILD)/kmod_info.c: scripts/kmod_info.c.in Makefile
 $(BUILD)/obj/IntelBTUnified.o: src/IntelBTUnified.cpp $(BUILD)/Devices.h
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-$(BUILD)/obj/plugin_start.o: $(LILU)/Lilu/Library/plugin_start.cpp
+$(BUILD)/obj/plugin_start.o: $(LILU)/Library/plugin_start.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 $(BUILD)/obj/FwBinary.o: $(BUILD)/FwBinary.cpp
@@ -98,9 +99,12 @@ $(KEXT): $(BUILD)/$(NAME) $(BUILD)/Info.plist
 	cp $(BUILD)/Info.plist $@/Contents/Info.plist
 	@echo "OK: $@"
 
-# Dos paquetes: solo AX210/AX211 (firmware ibt-0041-*, ~0.6 MB) y todos los firmwares (~11 MB).
+# Tres paquetes: solo AX201 (ibt-18-*, ~2 MB), solo AX210/AX211 (ibt-0041-*, ~0.6 MB)
+# y todos los firmwares (~11 MB).
 dist:
 	rm -rf dist && mkdir -p dist
+	$(MAKE) clean && $(MAKE) FW="ibt-18-*"
+	cd $(BUILD) && zip -qry ../dist/$(NAME)-$(VERSION)-AX201.zip $(NAME).kext
 	$(MAKE) clean && $(MAKE) FW="ibt-0041-*"
 	cd $(BUILD) && zip -qry ../dist/$(NAME)-$(VERSION)-AX210.zip $(NAME).kext
 	$(MAKE) clean && $(MAKE)

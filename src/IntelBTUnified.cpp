@@ -305,7 +305,7 @@ static void patched_cs_validate_page(vnode_t vp, memory_object_t pager, memory_o
 
 static void processPatcher(KernelPatcher &patcher) {
     if (getKernelVersion() >= KernelVersion::Sonoma) {
-        shouldPatchBoardId = checkKernelArgument("-btlfxboardid");
+        shouldPatchBoardId = true;//checkKernelArgument("-btlfxboardid");
     } else {
         auto boardId = BaseDeviceInfo::get().boardIdentifier;
         auto boardIdSize = strlen(boardId) + 1;
@@ -319,9 +319,9 @@ static void processPatcher(KernelPatcher &patcher) {
     }
     // 12.4 Beta 3+, XNU 21.5
     if ((getKernelVersion() == KernelVersion::Monterey && getKernelMinorVersion() >= 5) || getKernelVersion() > KernelVersion::Monterey)
-        shouldPatchAddress = checkKernelArgument("-btlfxallowanyaddr");
+        shouldPatchAddress = true;//checkKernelArgument("-btlfxallowanyaddr");
     if (getKernelVersion() <= KernelVersion::Sonoma)
-        shouldPatchNvramCheck = checkKernelArgument("-btlfxnvramcheck");
+        shouldPatchNvramCheck = true;//checkKernelArgument("-btlfxnvramcheck");
     KernelPatcher::RouteRequest csRoute("_cs_validate_page", patched_cs_validate_page, orig_cs_validate);
     if (!patcher.routeMultipleLong(KernelPatcher::KernelID, &csRoute, 1))
         SYSLOG(MODULE_BTLFX, "failed to route cs validation pages");

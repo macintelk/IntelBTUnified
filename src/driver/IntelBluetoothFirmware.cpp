@@ -85,6 +85,9 @@ bool IntelBluetoothFirmware::start(IOService *provider)
     }
     if (currentType == kTypeGen1) {
         m_pBTIntel = new IntelBluetoothOpsGen1();
+    } else if (currentType == kTypeGen2) {
+        // Gen2 (p.ej. AX201 8087:0026, ThP): protocolo legacy, no el TLV de Gen3.
+        m_pBTIntel = new IntelBluetoothOpsGen2();
     } else {
         m_pBTIntel = new IntelBluetoothOpsGen3();
     }

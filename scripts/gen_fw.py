@@ -2,7 +2,8 @@
 # Empaqueta los firmwares (zlib) en FwBinary.cpp.
 # uso: gen_fw.py <dir_fw> <salida.cpp> [patron_glob ...]
 # Sin patrones se incluye todo; con patrones solo los ficheros que coincidan
-# (p.ej. 'ibt-0041-*' para un AX201), lo que reduce mucho el tamano del kext.
+# (p.ej. 'ibt-18-*' para un AX201, 'ibt-0041-*' para un AX210), lo que reduce
+# mucho el tamano del kext.
 import fnmatch, hashlib, os, sys, zlib
 
 src, out = sys.argv[1], sys.argv[2]
