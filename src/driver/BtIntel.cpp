@@ -226,6 +226,7 @@ loadDDCConfig(const char *ddcFileName)
     const uint8_t *fw_ptr;
     uint8_t buf[CMD_BUF_MAX_SIZE];
     HciCommandHdr *cmd = (HciCommandHdr *)buf;
+    bool ret = true;
     
     OSData *fwData = requestFirmwareData(ddcFileName);
     
@@ -249,13 +250,20 @@ loadDDCConfig(const char *ddcFileName)
         memcpy(cmd->data, fw_ptr, cmd->len);
         if (!intelSendHCISync(cmd, NULL, 0, NULL, HCI_INIT_TIMEOUT)) {
             XYLog("Failed to send Intel_Write_DDC\n");
-            return false;
+            /* Memory leak fix: fwData used to leak here (the OSData was only
+             * released after the loop completed). Bail out of the loop and
+             * fall through to the single OSSafeReleaseNULL below instead of
+             * returning early.
+             */
+            ret = false;
+            break;
         }
 
         fw_ptr += cmd_plen;
     }
     OSSafeReleaseNULL(fwData);
     
-    XYLog("Load DDC config done\n");
-    return true;
+    if (ret)
+        XYLog("Load DDC config done\n");
+    return ret;
 }
