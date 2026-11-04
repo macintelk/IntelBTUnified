@@ -97,6 +97,7 @@ $(KEXT): $(BUILD)/$(NAME) $(BUILD)/Info.plist
 	mkdir -p $@/Contents/MacOS
 	cp $(BUILD)/$(NAME) $@/Contents/MacOS/$(NAME)
 	cp $(BUILD)/Info.plist $@/Contents/Info.plist
+	codesign -v -f -s - $@/Contents/MacOS/$(NAME)
 	@echo "OK: $@"
 
 # Tres paquetes: solo AX201 (ibt-18-*, ~2 MB), solo AX210/AX211 (ibt-0041-*, ~0.6 MB)
