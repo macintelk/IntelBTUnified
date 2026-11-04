@@ -38,7 +38,7 @@ plist = {
     'NSHumanReadableCopyright': 'GPL-3.0-only. Basado en IntelBluetoothFirmware/IntelBTPatcher (zxystd, OpenIntelWireless) y BlueToolFixup (acidanthera).',
     'OSBundleRequired': 'Root',
     'OSBundleLibraries': {
-        'as.vit9696.Lilu': '1.4.7',
+        'as.vit9696.Lilu': '1.7.2',
         'com.apple.iokit.IOUSBHostFamily': '1.2',
         'com.apple.kpi.bsd': '12.0.0',
         'com.apple.kpi.dsep': '12.0.0',

@@ -154,13 +154,8 @@ exit_mfg_deactivate:
     /* Patching failed. Disable the manufacturer mode with reset and
      * deactivate the downloaded firmware patches.
      */
-    /* Memory leak fix: when we get here via the failed-patching goto, fwData
-     * is still owned by this function (it is only released after the loop
-     * succeeds). Release it before any exit path, otherwise a failing
-     * exitMfg() below leaks the whole patch file. OSSafeReleaseNULL is a
-     * no-op on an already-NULL pointer, so this stays correct for every
-     * path that reaches this label.
-     */
+    /* Al entrar por el goto, fwData todavia esta retenido: liberarlo aqui.
+     * complete: vuelve a hacerlo, pero OSSafeReleaseNULL ya lo deja a NULL. */
     OSSafeReleaseNULL(fwData);
     if (!exitMfg(true, false)) {
         XYLog("Exit mfg failed %d\n", __LINE__);

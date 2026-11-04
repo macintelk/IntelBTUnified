@@ -226,7 +226,6 @@ loadDDCConfig(const char *ddcFileName)
     const uint8_t *fw_ptr;
     uint8_t buf[CMD_BUF_MAX_SIZE];
     HciCommandHdr *cmd = (HciCommandHdr *)buf;
-    bool ret = true;
     
     OSData *fwData = requestFirmwareData(ddcFileName);
     
@@ -243,27 +242,36 @@ loadDDCConfig(const char *ddcFileName)
      * Length (1 byte), DDC ID (2 bytes), and DDC value (Length - 2).
      */
     while (fwData->getLength() > fw_ptr - (uint8_t *)fwData->getBytesNoCopy()) {
+        size_t remaining = fwData->getLength() - (fw_ptr - (uint8_t *)fwData->getBytesNoCopy());
         uint8_t cmd_plen = fw_ptr[0] + sizeof(uint8_t);
+
+        /* El registro DDC trae su propio byte de longitud y se copia tal cual al
+         * comando: sin validarlo, un registro de 254/255 bytes escribia fuera de
+         * buf (256 bytes) tanto en memcpy como en sendHCIRequest (wLength), y un
+         * byte 0xFF hacia cmd_plen == 0, avanzando fw_ptr 0 bytes: bucle infinito.
+         * cmd->data solo tiene sitio para CMD_BUF_MAX_SIZE - HCI_COMMAND_HDR_SIZE.
+         */
+        if (cmd_plen < sizeof(uint8_t) ||
+            cmd_plen > CMD_BUF_MAX_SIZE - HCI_COMMAND_HDR_SIZE ||
+            cmd_plen > remaining) {
+            XYLog("Invalid DDC record (len: %u, remaining: %u)\n", cmd_plen, (uint)remaining);
+            OSSafeReleaseNULL(fwData);
+            return false;
+        }
 
         cmd->opcode = OSSwapHostToLittleInt16(0xfc8b);
         cmd->len = cmd_plen;
         memcpy(cmd->data, fw_ptr, cmd->len);
         if (!intelSendHCISync(cmd, NULL, 0, NULL, HCI_INIT_TIMEOUT)) {
             XYLog("Failed to send Intel_Write_DDC\n");
-            /* Memory leak fix: fwData used to leak here (the OSData was only
-             * released after the loop completed). Bail out of the loop and
-             * fall through to the single OSSafeReleaseNULL below instead of
-             * returning early.
-             */
-            ret = false;
-            break;
+            OSSafeReleaseNULL(fwData);
+            return false;
         }
 
         fw_ptr += cmd_plen;
     }
     OSSafeReleaseNULL(fwData);
     
-    if (ret)
-        XYLog("Load DDC config done\n");
-    return ret;
+    XYLog("Load DDC config done\n");
+    return true;
 }

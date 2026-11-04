@@ -11,8 +11,6 @@ VERSION    := 1.0.0
 BUNDLE_ID  := local.$(NAME)
 FW	 ?= *
 
-MKSDK_REF  := 3f750085caa17ec3a7880f11c11bf4f48cd6a164
-LILU_REF   := 0515f40b7f2a096adc85e832a4c6104fbd07f936
 MKSDK      := deps/MacKernelSDK
 LILU       := deps/Lilu.kext/Contents/Resources
 
@@ -33,7 +31,7 @@ COMMON := -target x86_64-apple-macos$(MINOS) -arch x86_64 -mkernel -fno-builtin 
 	  -D_FORTIFY_SOURCE=0 -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT \
 	  -DPRODUCT_NAME=$(NAME) -DMODULE_VERSION=$(VERSION) \
 	  -Wall -Wno-unused-function -Wno-deprecated-declarations $(OPT) \
-	  -I$(MKSDK)/Headers -I$(LILU) -I$(LILU)/Lilu -I$(BUILD) -Isrc/driver \
+	  -I$(MKSDK)/Headers -I$(LILU) -I$(LILU)/Headers -I$(BUILD) -Isrc/driver \
 	  -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
 CFLAGS   := $(COMMON) -std=gnu11
 CXXFLAGS := $(COMMON) -std=gnu++17 -fno-rtti -fno-exceptions -fno-sized-deallocation -nostdinc++
@@ -49,10 +47,6 @@ all: $(KEXT)
 
 deps:
 	mkdir -p deps
-	[ -d $(MKSDK) ] || git clone https://github.com/acidanthera/MacKernelSDK $(MKSDK)
-	git -C $(MKSDK) checkout -q $(MKSDK_REF)
-	[ -d $(LILU) ] || git clone https://github.com/acidanthera/Lilu $(LILU)
-	git -C $(LILU) checkout -q $(LILU_REF)
 
 $(BUILD)/Devices.h: devices.txt scripts/gen_devices.py
 	@mkdir -p $(BUILD)

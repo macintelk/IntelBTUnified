@@ -489,82 +489,116 @@ parseVersionTLV(IntelVersionTLV *version, const uint8_t *versionDataPtr, int len
      * to keep the existing setup flow
      */
     while (len > 0) {
+        int tlvSize;
+
+        /* La respuesta la controla el dispositivo: un TLV con longitud
+         * exagerada hacia caminar versionDataPtr mas alla del buffer de
+         * respuesta, y los campos de tamano fijo leian hasta 4 bytes
+         * aunque el TLV anunciara menos. Se acota el recorrido al buffer
+         * y se exige la longitud minima antes de cada lectura.
+         */
+        if (len < (int)sizeof(IntelTLV))
+            break;
         tlv = (IntelTLV *)versionDataPtr;
+        tlvSize = (int)sizeof(IntelTLV) + tlv->len;
+        if (tlvSize > len)
+            break;
         switch (tlv->type) {
             case INTEL_TLV_CNVI_TOP:
-                version->cnvi_top = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4)
+                    version->cnvi_top = get_unaligned_le32(tlv->val);
                 break;
             case INTEL_TLV_CNVR_TOP:
-                version->cnvr_top = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4)
+                    version->cnvr_top = get_unaligned_le32(tlv->val);
                 break;
             case INTEL_TLV_CNVI_BT:
-                version->cnvi_bt = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4)
+                    version->cnvi_bt = get_unaligned_le32(tlv->val);
                 break;
             case INTEL_TLV_CNVR_BT:
-                version->cnvr_bt = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4)
+                    version->cnvr_bt = get_unaligned_le32(tlv->val);
                 break;
             case INTEL_TLV_DEV_REV_ID:
-                version->dev_rev_id = get_unaligned_le16(tlv->val);
+                if (tlv->len >= 2)
+                    version->dev_rev_id = get_unaligned_le16(tlv->val);
                 break;
             case INTEL_TLV_IMAGE_TYPE:
-                version->img_type = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->img_type = tlv->val[0];
                 break;
             case INTEL_TLV_TIME_STAMP:
                 /* If image type is Operational firmware (0x03), then
                  * running FW Calendar Week and Year information can
                  * be extracted from Timestamp information
                  */
-                version->min_fw_build_cw = tlv->val[0];
-                version->min_fw_build_yy = tlv->val[1];
-                version->timestamp = get_unaligned_le16(tlv->val);
+                if (tlv->len >= 2) {
+                    version->min_fw_build_cw = tlv->val[0];
+                    version->min_fw_build_yy = tlv->val[1];
+                    version->timestamp = get_unaligned_le16(tlv->val);
+                }
                 break;
             case INTEL_TLV_BUILD_TYPE:
-                version->build_type = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->build_type = tlv->val[0];
                 break;
             case INTEL_TLV_BUILD_NUM:
                 /* If image type is Operational firmware (0x03), then
                  * running FW build number can be extracted from the
                  * Build information
                  */
-                version->min_fw_build_nn = tlv->val[0];
-                version->build_num = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4) {
+                    version->min_fw_build_nn = tlv->val[0];
+                    version->build_num = get_unaligned_le32(tlv->val);
+                }
                 break;
             case INTEL_TLV_SECURE_BOOT:
-                version->secure_boot = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->secure_boot = tlv->val[0];
                 break;
             case INTEL_TLV_OTP_LOCK:
-                version->otp_lock = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->otp_lock = tlv->val[0];
                 break;
             case INTEL_TLV_API_LOCK:
-                version->api_lock = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->api_lock = tlv->val[0];
                 break;
             case INTEL_TLV_DEBUG_LOCK:
-                version->debug_lock = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->debug_lock = tlv->val[0];
                 break;
             case INTEL_TLV_MIN_FW:
-                version->min_fw_build_nn = tlv->val[0];
-                version->min_fw_build_cw = tlv->val[1];
-                version->min_fw_build_yy = tlv->val[2];
+                if (tlv->len >= 3) {
+                    version->min_fw_build_nn = tlv->val[0];
+                    version->min_fw_build_cw = tlv->val[1];
+                    version->min_fw_build_yy = tlv->val[2];
+                }
                 break;
             case INTEL_TLV_LIMITED_CCE:
-                version->limited_cce = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->limited_cce = tlv->val[0];
                 break;
             case INTEL_TLV_SBE_TYPE:
-                version->sbe_type = tlv->val[0];
+                if (tlv->len >= 1)
+                    version->sbe_type = tlv->val[0];
                 break;
             case INTEL_TLV_OTP_BDADDR:
-                memcpy(&version->otp_bd_addr, tlv->val, tlv->len);
+                memcpy(&version->otp_bd_addr, tlv->val,
+                       min((uint8_t)tlv->len, (uint8_t)sizeof(bdaddr_t)));
                 break;
             case INTEL_TLV_GIT_SHA1:
-                version->git_sha1 = get_unaligned_le32(tlv->val);
+                if (tlv->len >= 4)
+                    version->git_sha1 = get_unaligned_le32(tlv->val);
                 break;
             default:
                 /* Ignore rest of information */
                 break;
         }
         
-        len -= (sizeof(IntelTLV) + tlv->len);
-        versionDataPtr += (sizeof(IntelTLV) + tlv->len);
+        len -= tlvSize;
+        versionDataPtr += tlvSize;
     }
     
     return true;

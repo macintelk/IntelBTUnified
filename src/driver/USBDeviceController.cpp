@@ -53,11 +53,6 @@ findInterface()
         IOUSBHostInterface* interfaceCandidate = OSDynamicCast(IOUSBHostInterface, candidate);
         if(interfaceCandidate != NULL) {
             XYLog("Found interface!!!\n");
-            /* Refcount fix: getNextObject() does not retain the object and the
-             * iterator is released below. Take our own reference so the stored
-             * pointer cannot dangle; it is released in free().
-             */
-            interfaceCandidate->retain();
             m_pInterface = interfaceCandidate;
             break;
         }
@@ -102,8 +97,7 @@ free()
             m_pInterface->close(m_pClient);
             m_pClient = NULL;
         }
-        /* Refcount fix: drop the reference taken in findInterface(). */
-        OSSafeReleaseNULL(m_pInterface);
+        m_pInterface = NULL;
     }
     m_pDevice = NULL;
     super::free();
@@ -154,43 +148,33 @@ findPipes()
         epType = StandardUSB::getEndpointType(endpointDescriptor);
         if (epDirection == kUSBIn && epType == kUSBInterrupt) {
             XYLog("Found Interrupt endpoint!\n");
-            IOUSBHostPipe *pipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
-            if (pipe == NULL) {
+            m_pInterruptReadPipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
+            if (m_pInterruptReadPipe == NULL) {
                 XYLog("Copy InterruptReadPipe pipe fail\n");
                 return false;
             }
-            /* Leak fix: copyPipe() already returns a retained pipe. If a
-             * second matching endpoint shows up, the old pipe pointer used to
-             * be overwritten and the previous reference leaked. Release any
-             * previously copied pipe before storing the new one.
-             */
-            if (m_pInterruptReadPipe != NULL)
-                m_pInterruptReadPipe->release();
-            m_pInterruptReadPipe = pipe;
+            m_pInterruptReadPipe->retain();
+            m_pInterruptReadPipe->release();
         } else {
             if (epDirection == kUSBOut && epType == kUSBBulk) {
                 XYLog("Found Bulk out endpoint!\n");
-                IOUSBHostPipe *pipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
-                if (pipe == NULL) {
+                m_pBulkWritePipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
+                if (m_pBulkWritePipe == NULL) {
                     XYLog("Copy Bulk pipe fail\n");
                     return false;
                 }
-                /* Leak fix: same overwrite guard as above. */
-                if (m_pBulkWritePipe != NULL)
-                    m_pBulkWritePipe->release();
-                m_pBulkWritePipe = pipe;
+                m_pBulkWritePipe->retain();
+                m_pBulkWritePipe->release();
             } else {
                 if (epDirection == kUSBIn && epType == kUSBBulk) {
                     XYLog("Found Bulk in endpoint!\n");
-                    IOUSBHostPipe *pipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
-                    if (pipe == NULL) {
+                    m_pBulkReadPipe = m_pInterface->copyPipe(StandardUSB::getEndpointAddress(endpointDescriptor));
+                    if (m_pBulkReadPipe == NULL) {
                         XYLog("Copy Bulk pipe fail\n");
                         return false;
                     }
-                    /* Leak fix: same overwrite guard as above. */
-                    if (m_pBulkReadPipe != NULL)
-                        m_pBulkReadPipe->release();
-                    m_pBulkReadPipe = pipe;
+                    m_pBulkReadPipe->retain();
+                    m_pBulkReadPipe->release();
                 }
             }
         }

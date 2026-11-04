@@ -376,7 +376,23 @@ downloadFirmwarePayload(OSData *fwData, size_t offset)
     frag_len = 0;
     
     while (fw_ptr - (uint8_t *)fwData->getBytesNoCopy() < fwData->getLength()) {
+        size_t remaining = fwData->getLength() - (fw_ptr - (uint8_t *)fwData->getBytesNoCopy());
         HciCommandHdr *cmd = (HciCommandHdr *)(fw_ptr + frag_len);
+        
+        /* cmd->len viene del propio fichero: sin comprobarlo, un fichero
+         * truncado acumulaba frag_len mas alla del final del OSData y
+         * securedSend leia y enviaba memoria ajena como si fuera firmware.
+         */
+        if (frag_len + sizeof(*cmd) > remaining) {
+            XYLog("Firmware payload corrupted (truncated command header)\n");
+            ret = false;
+            goto done;
+        }
+        if (frag_len + sizeof(*cmd) + (size_t)cmd->len > remaining) {
+            XYLog("Firmware payload corrupted (command exceeds file size)\n");
+            ret = false;
+            goto done;
+        }
         
         frag_len += sizeof(*cmd) + cmd->len;
         
@@ -412,6 +428,12 @@ firmwareVersion(uint8_t num, uint8_t ww, uint8_t yy, OSData *fwData, uint32_t *b
     
     while (fw_ptr - (uint8_t *)fwData->getBytesNoCopy() < fwData->getLength()) {
         FWCommandHdr *cmd = (FWCommandHdr *)(fw_ptr);
+        size_t remaining = fwData->getLength() - (fw_ptr - (uint8_t *)fwData->getBytesNoCopy());
+
+        if (remaining < sizeof(*cmd)) {
+            XYLog("Firmware corrupted (truncated command header)\n");
+            break;
+        }
 
         /* Each SKU has a different reset parameter to use in the
          * HCI_Intel_Reset command and it is embedded in the firmware
@@ -420,6 +442,11 @@ firmwareVersion(uint8_t num, uint8_t ww, uint8_t yy, OSData *fwData, uint32_t *b
          */
         if (OSSwapLittleToHostConstInt16(cmd->opcode) == CMD_WRITE_BOOT_PARAMS) {
             struct cmd_write_boot_params *params;
+
+            if (remaining < sizeof(*cmd) + sizeof(*params)) {
+                XYLog("Firmware corrupted (truncated boot params)\n");
+                break;
+            }
 
             params = (struct cmd_write_boot_params *)(fw_ptr + sizeof(*cmd));
             
