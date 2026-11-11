@@ -60,7 +60,7 @@ and `btlfx: patched /usr/sbin/bluetoothd: …` lines.
 You only need the **Command Line Tools** (no Xcode), `git`, `python3` and `make`.
 
 ```sh
-make deps                          # clone MacKernelSDK and Lilu (commits pinned in the Makefile) into deps/
+make deps                          # optionally prepare the pinned dependencies in deps/ ahead of time
 make FW="ibt-18-*"                 # AX201 firmware only → build/IntelBTUnified.kext
 make FW="ibt-0041-*"               # AX210/AX211 firmware only → build/IntelBTUnified.kext
 make clean; make                   # every firmware
@@ -68,6 +68,7 @@ make DEBUG=1                       # with DBGLOG
 make dist                          # builds dist/IntelBTUnified-<version>-{AX201,AX210,full}.zip
 ```
 
+Builds automatically prepare the pinned MacKernelSDK and Lilu source checkouts in `deps/`.
 Run `make clean` when you change `FW`. To pick another firmware, `FW` takes space-separated glob patterns
 (`ls fw/` lists the files; the `ibt-XXXX-YYYY` name comes from the log: `Found device firmware …`).
 
